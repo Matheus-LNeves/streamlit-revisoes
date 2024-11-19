@@ -15,9 +15,24 @@ except locale.Error:
     except locale.Error:
         pass
 
-# Caminho do banco de dados SQLite
-db_path = "eventos.db"
+# Caminho do banco de dados SQLite em um local persistente
+db_path = os.path.expanduser("~/eventos.db")  # Banco será salvo no diretório do usuário
 
+# Função para sincronizar o banco com o repositório Git
+def sincronizar_banco_git():
+    """
+    Puxa alterações do repositório e adiciona automaticamente o banco ao repositório após alterações.
+    """
+    # Puxa alterações do repositório
+    os.system("git pull")
+
+    # Sincroniza banco com o repositório após alterações
+    if os.path.exists(db_path):
+        os.system(f"git add {db_path} && git commit -m 'Atualiza banco de dados eventos.db' && git push")
+        st.info("Banco de dados sincronizado com o repositório.")
+
+# Sincroniza o banco ao iniciar a aplicação
+sincronizar_banco_git()
 
 # Lista de clientes
 def carregar_clientes():
@@ -29,7 +44,6 @@ def carregar_clientes():
     planilha2 = pd.read_excel(xls, 'Planilha2')
     nomes_encontrados = list(set(planilha2['a'].dropna().loc[planilha2['a.3'] != "Não encontrado"]))
     return sorted(nomes_encontrados)
-
 
 # Função para inicializar o banco de dados
 def inicializar_banco():
@@ -141,8 +155,6 @@ def main():
     eventos = carregar_eventos()
     cancelados = carregar_cancelados()
 
-
-
     clientes = carregar_clientes()
 
     # Seleção de Cliente e Data para Agendamento
@@ -155,6 +167,7 @@ def main():
         for evento in proximos_eventos:
             salvar_evento(evento["cliente"], evento["data"], evento["observacao"])
         st.success("Revisão agendada com sucesso!")
+        sincronizar_banco_git()  # Sincroniza o banco após salvar
 
     # Seção do calendário de eventos agendados
     st.header("Calendário de Eventos Agendados")
@@ -173,10 +186,12 @@ def main():
                     if st.button("Salvar Observação", key=f"salvar_obs_{evento['id']}"):
                         atualizar_evento(evento['id'], observacao)
                         st.success("Observação salva com sucesso!")
+                        sincronizar_banco_git()  # Sincroniza o banco após atualizar
                     if st.button(f"Cancelar evento de {evento['cliente']}", key=f"cancelar_{evento['id']}"):
                         salvar_cancelado(evento['cliente'], evento['data'], evento['observacao'])
                         excluir_evento(evento['id'])
                         st.success("Evento cancelado com sucesso!")
+                        sincronizar_banco_git()  # Sincroniza o banco após exclusão
 
     # Lista de Eventos Cancelados
     with st.expander("Eventos Cancelados"):
@@ -191,6 +206,7 @@ def main():
                         salvar_evento(evento['cliente'], nova_data.strftime('%Y-%m-%d'), evento['observacao'])
                         excluir_cancelado(evento['id'])
                         st.success("Evento reagendado com sucesso!")
+                        sincronizar_banco_git()  # Sincroniza o banco após reagendar
 
 if __name__ == "__main__":
     main()
