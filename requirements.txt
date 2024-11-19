@@ -2,4 +2,3 @@ streamlit
 pandas
 openpyxl
 streamlit-calendar
-sqlite3
