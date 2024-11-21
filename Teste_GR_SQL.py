@@ -148,7 +148,36 @@ def excluir_evento(evento_id):
     realizar_backup_google_drive()  # Faz o backup após exclusão
     sincronizar_banco_git()
 
-# Função principal da aplicação Streamlit
+def carregar_cancelados():
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM cancelados")
+    cancelados = cursor.fetchall()
+    conn.close()
+    return [{"id": c[0], "cliente": c[1], "data": c[2], "observacao": c[3]} for c in cancelados]
+
+def salvar_cancelado(cliente, data, observacao=""):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO cancelados (cliente, data, observacao) VALUES (?, ?, ?)",
+        (cliente, data, observacao)
+    )
+    conn.commit()
+    conn.close()
+    realizar_backup_google_drive()  # Faz o backup após salvar cancelamento
+    sincronizar_banco_git()
+
+def excluir_cancelado(cancelado_id):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM cancelados WHERE id = ?", (cancelado_id,))
+    conn.commit()
+    conn.close()
+    realizar_backup_google_drive()  # Faz o backup após exclusão
+    sincronizar_banco_git()
+
+# Principal função da aplicação Streamlit
 def main():
     st.title("Gerenciamento de Revisões")
     
@@ -157,6 +186,7 @@ def main():
 
     # Carregar dados
     eventos = carregar_eventos()
+    cancelados = carregar_cancelados()
     clientes = carregar_clientes()
 
     # Seleção de Cliente e Data para Agendamento
@@ -167,10 +197,41 @@ def main():
         salvar_evento(cliente_selecionado, data_reuniao.strftime('%Y-%m-%d'))
         st.success("Revisão agendada com sucesso!")
 
-    # Exibe os eventos no calendário
+    # Seção do calendário de eventos agendados
     st.header("Calendário de Eventos Agendados")
     eventos_calendario = [{"title": e['cliente'], "start": e['data']} for e in eventos]
     calendar(events=eventos_calendario)
+
+    # Lista de Eventos Agendados
+    with st.expander("Lista de Eventos Agendados"):
+        cliente_agendado_selecionado = st.selectbox("Filtrar por Cliente", ["Selecione um Cliente"] + clientes, key="agendados")
+        if cliente_agendado_selecionado != "Selecione um Cliente":
+            agendados_filtrados = [e for e in eventos if e['cliente'] == cliente_agendado_selecionado]
+            if agendados_filtrados:
+                for evento in agendados_filtrados:
+                    st.write(f"Cliente: {evento['cliente']}, Data: {evento['data']}")
+                    observacao = st.text_area("Observações", value=evento['observacao'], key=f"obs_{evento['id']}")
+                    if st.button("Salvar Observação", key=f"salvar_obs_{evento['id']}"):
+                        atualizar_evento(evento['id'], observacao)
+                        st.success("Observação salva com sucesso!")
+                    if st.button(f"Cancelar evento de {evento['cliente']}", key=f"cancelar_{evento['id']}"):
+                        salvar_cancelado(evento['cliente'], evento['data'], evento['observacao'])
+                        excluir_evento(evento['id'])
+                        st.success("Evento cancelado com sucesso!")
+
+    # Lista de Eventos Cancelados
+    with st.expander("Eventos Cancelados"):
+        cliente_cancelado_selecionado = st.selectbox("Filtrar por Cliente na Lista de Cancelados", ["Selecione um Cliente"] + clientes, key="cancelado")
+        if cliente_cancelado_selecionado != "Selecione um Cliente":
+            cancelados_filtrados = [c for c in cancelados if c['cliente'] == cliente_cancelado_selecionado]
+            if cancelados_filtrados:
+                for evento in cancelados_filtrados:
+                    st.write(f"Cliente: {evento['cliente']}, Data Cancelada: {evento['data']}")
+                    nova_data = st.date_input(f"Nova Data para {evento['cliente']}", datetime.now(), key=f"nova_data_{evento['id']}")
+                    if st.button(f"Reagendar {evento['cliente']}", key=f"reagendar_{evento['id']}"):
+                        salvar_evento(evento['cliente'], nova_data.strftime('%Y-%m-%d'), evento['observacao'])
+                        excluir_cancelado(evento['id'])
+                        st.success("Evento reagendado com sucesso!")
 
 if __name__ == "__main__":
     main()
