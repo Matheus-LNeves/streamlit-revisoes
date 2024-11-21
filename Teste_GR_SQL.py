@@ -28,11 +28,21 @@ def autenticar_google_drive():
     Autentica o Google Drive usando as credenciais armazenadas como variável de ambiente.
     """
     credentials_path = "/tmp/credentials.json"
-    credentials_data = os.getenv("GOOGLE_CREDENTIALS")
+    credentials_path = "credentials.json"  # Arquivo local
+    gauth.LoadClientConfigFile(credentials_path)
 
-    # Escreve o conteúdo do JSON para um arquivo temporário
-    with open(credentials_path, "w") as f:
-        f.write(credentials_data)
+    # Verifica se a variável está configurada
+    if not credentials_data:
+        st.error("Erro: Variável de ambiente 'GOOGLE_CREDENTIALS' não está configurada ou é inválida.")
+        st.stop()
+
+    # Escreve o JSON para o arquivo temporário
+    try:
+        with open(credentials_path, "w") as f:
+            f.write(credentials_data)
+    except Exception as e:
+        st.error(f"Erro ao gravar o arquivo de credenciais: {e}")
+        st.stop()
 
     gauth = GoogleAuth()
 
@@ -45,7 +55,6 @@ def autenticar_google_drive():
         gauth.SaveCredentialsFile("/tmp/token.json")
 
     return GoogleDrive(gauth)
-
 # Função para realizar backup no Google Drive
 def realizar_backup_google_drive():
     """
