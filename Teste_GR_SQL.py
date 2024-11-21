@@ -177,6 +177,23 @@ def excluir_cancelado(cancelado_id):
     realizar_backup_google_drive()  # Faz o backup após exclusão
     sincronizar_banco_git()
 
+# Função para gerar próximos 3 eventos do cliente com intervalos de 3 meses
+def gerar_proximos_eventos(cliente, data_inicial):
+    novos_eventos = []
+    for i in range(1, 4):  # Gera 3 eventos, com intervalos de 3 meses
+        data_evento = data_inicial + timedelta(days=i * 90)
+        # Ajusta a data para evitar finais de semana
+        if data_evento.weekday() == 5:  # Sábado
+            data_evento += timedelta(days=2)  # Ajusta para segunda-feira
+        elif data_evento.weekday() == 6:  # Domingo
+            data_evento += timedelta(days=1)  # Ajusta para segunda-feira
+        novos_eventos.append({
+            "cliente": cliente,
+            "data": data_evento.strftime('%Y-%m-%d'),
+            "observacao": ""
+        })
+    return novos_eventos
+
 # Principal função da aplicação Streamlit
 def main():
     st.title("Gerenciamento de Revisões")
@@ -195,6 +212,9 @@ def main():
     data_reuniao = st.date_input("Escolha a Data da Reunião", datetime.now())
     if st.button("Agendar Revisão"):
         salvar_evento(cliente_selecionado, data_reuniao.strftime('%Y-%m-%d'))
+        proximos_eventos = gerar_proximos_eventos(cliente_selecionado, data_reuniao)
+        for evento in proximos_eventos:
+            salvar_evento(evento["cliente"], evento["data"], evento["observacao"])
         st.success("Revisão agendada com sucesso!")
 
     # Seção do calendário de eventos agendados
@@ -235,3 +255,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
