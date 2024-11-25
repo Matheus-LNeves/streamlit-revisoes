@@ -23,9 +23,6 @@ except locale.Error:
 db_path = os.path.expanduser("~/eventos.db")
 backup_path = "/tmp/backup_eventos.db"  # Backup temporário
 
-# Caminho do banco de dados SQLite
-db_path = os.path.expanduser("~/eventos.db")
-backup_path = "/tmp/backup_eventos.db"  # Backup temporário
 
 # Função para autenticar e criar conexão com o Google Drive
 def autenticar_google_drive():
