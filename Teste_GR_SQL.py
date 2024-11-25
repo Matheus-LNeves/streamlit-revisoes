@@ -32,71 +32,71 @@ def autenticar_google_drive():
     """
     Autentica o Google Drive usando as credenciais armazenadas no Streamlit Secrets.
     """
-    # Acessa as credenciais do bloco 'GOOGLE_CREDENTIALS' nos secrets
-    credentials_data = {
-        "client_id": st.secrets["GOOGLE_CREDENTIALS"]["client_id"],
-        "project_id": st.secrets["GOOGLE_CREDENTIALS"]["project_id"],
-        "auth_uri": st.secrets["GOOGLE_CREDENTIALS"]["auth_uri"],
-        "token_uri": st.secrets["GOOGLE_CREDENTIALS"]["token_uri"],
-        "auth_provider_x509_cert_url": st.secrets["GOOGLE_CREDENTIALS"]["auth_provider_x509_cert_url"],
-        "client_secret": st.secrets["GOOGLE_CREDENTIALS"]["client_secret"],
-        "redirect_uris": st.secrets["GOOGLE_CREDENTIALS"]["redirect_uris"]
-    }
-
-    # Escreve as credenciais em um arquivo JSON temporário
-    credentials_path = "/tmp/credentials.json"
-    with open(credentials_path, "w") as f:
-        f.write(json.dumps({"web": credentials_data}))
-
-    gauth = GoogleAuth()
-
-    # Tenta carregar o token salvo ou autenticar pela primeira vez
     try:
-        if os.path.exists("/tmp/token.json"):
-            gauth.LoadCredentialsFile("/tmp/token.json")
+        # Acessa as credenciais do bloco 'GOOGLE_CREDENTIALS' nos secrets
+        credentials_data = {
+            "client_id": st.secrets["GOOGLE_CREDENTIALS"]["client_id"],
+            "project_id": st.secrets["GOOGLE_CREDENTIALS"]["project_id"],
+            "auth_uri": st.secrets["GOOGLE_CREDENTIALS"]["auth_uri"],
+            "token_uri": st.secrets["GOOGLE_CREDENTIALS"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["GOOGLE_CREDENTIALS"]["auth_provider_x509_cert_url"],
+            "client_secret": st.secrets["GOOGLE_CREDENTIALS"]["client_secret"],
+            "redirect_uris": st.secrets["GOOGLE_CREDENTIALS"]["redirect_uris"]
+        }
+
+        # Escreve as credenciais em um arquivo JSON temporário
+        credentials_path = "/tmp/credentials.json"
+        with open(credentials_path, "w") as f:
+            f.write(json.dumps({"web": credentials_data}))
+
+        gauth = GoogleAuth()
+
+        # Verifica se já existe um token salvo
+        token_path = "/tmp/token.json"
+        if os.path.exists(token_path):
+            gauth.LoadCredentialsFile(token_path)
         else:
             gauth.LoadClientConfigFile(credentials_path)
-            gauth.CommandLineAuth()
-            gauth.SaveCredentialsFile("/tmp/token.json")
+            gauth.CommandLineAuth()  # Autenticação manual apenas na primeira vez
+            gauth.SaveCredentialsFile(token_path)
+
+        return GoogleDrive(gauth)
+
     except Exception as e:
         st.error(f"Erro ao autenticar no Google Drive: {e}")
         st.stop()
 
-    return GoogleDrive(gauth)
 
 # Função para realizar backup no Google Drive
 def realizar_backup_google_drive():
     """
     Realiza um backup do banco de dados SQLite e envia para o Google Drive.
     """
-    if os.path.exists(db_path):
-        shutil.copy2(db_path, backup_path)
-        st.info(f"Backup salvo localmente em {backup_path}")
+    try:
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, backup_path)
+            st.info(f"Backup salvo localmente em {backup_path}")
 
-        # Autentica e envia o backup ao Google Drive
-        drive = autenticar_google_drive()
-        if not drive:
-            return
+            # Autentica e envia o backup ao Google Drive
+            drive = autenticar_google_drive()
+            if not drive:
+                return
 
-        # Remove backups antigos
-        try:
+            # Remove backups antigos
             file_list = drive.ListFile({'q': "title='backup_eventos.db'"}).GetList()
             for file in file_list:
                 file.Delete()
-        except Exception as e:
-            st.error(f"Erro ao limpar backups antigos no Google Drive: {e}")
-            return
 
-        # Envia o novo backup
-        try:
+            # Envia o novo backup
             file = drive.CreateFile({'title': 'backup_eventos.db'})
             file.SetContentFile(backup_path)
             file.Upload()
             st.success("Backup enviado para o Google Drive com sucesso.")
-        except Exception as e:
-            st.error(f"Erro ao enviar backup para o Google Drive: {e}")
-    else:
-        st.error("Banco de dados não encontrado para realizar o backup.")
+        else:
+            st.error("Banco de dados não encontrado para realizar o backup.")
+    except Exception as e:
+        st.error(f"Erro ao realizar backup: {e}")
+
 
 # Função para inicializar o banco de dados
 def inicializar_banco():
