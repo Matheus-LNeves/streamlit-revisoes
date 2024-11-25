@@ -22,36 +22,40 @@ except locale.Error:
 db_path = os.path.expanduser("~/eventos.db")
 backup_path = "/tmp/backup_eventos.db"  # Backup temporário
 
+# Caminho do banco de dados SQLite
+db_path = os.path.expanduser("~/eventos.db")
+backup_path = "/tmp/backup_eventos.db"  # Backup temporário
+
 # Função para autenticar e criar conexão com o Google Drive
 def autenticar_google_drive():
     """
-    Autentica o Google Drive usando as credenciais armazenadas como variável de ambiente.
+    Autentica o Google Drive usando as credenciais armazenadas no Streamlit Secrets.
     """
+    # Acessa as credenciais do bloco 'GOOGLE_CREDENTIALS' nos secrets
+    credentials_data = {
+        "client_id": st.secrets["GOOGLE_CREDENTIALS"]["client_id"],
+        "project_id": st.secrets["GOOGLE_CREDENTIALS"]["project_id"],
+        "auth_uri": st.secrets["GOOGLE_CREDENTIALS"]["auth_uri"],
+        "token_uri": st.secrets["GOOGLE_CREDENTIALS"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["GOOGLE_CREDENTIALS"]["auth_provider_x509_cert_url"],
+        "client_secret": st.secrets["GOOGLE_CREDENTIALS"]["client_secret"],
+        "redirect_uris": st.secrets["GOOGLE_CREDENTIALS"]["redirect_uris"]
+    }
+
+    # Escreve as credenciais em um arquivo JSON temporário
     credentials_path = "/tmp/credentials.json"
-    credentials_data = os.getenv("GOOGLE_CREDENTIALS")
-
-    # Verifica se a variável está configurada
-    if not credentials_data:
-        st.error("Erro: Variável de ambiente 'GOOGLE_CREDENTIALS' não está configurada ou é inválida.")
-        st.stop()
-
-    # Escreve o JSON para o arquivo temporário
-    try:
-        with open(credentials_path, "w") as f:
-            f.write(credentials_data)
-    except Exception as e:
-        st.error(f"Erro ao gravar o arquivo de credenciais: {e}")
-        st.stop()
+    with open(credentials_path, "w") as f:
+        f.write(json.dumps({"web": credentials_data}))
 
     gauth = GoogleAuth()
 
-    # Tenta carregar o token salvo
+    # Tenta carregar o token salvo ou autenticar pela primeira vez
     try:
         if os.path.exists("/tmp/token.json"):
             gauth.LoadCredentialsFile("/tmp/token.json")
         else:
             gauth.LoadClientConfigFile(credentials_path)
-            gauth.CommandLineAuth()  # Usa autenticação via linha de comando
+            gauth.CommandLineAuth()
             gauth.SaveCredentialsFile("/tmp/token.json")
     except Exception as e:
         st.error(f"Erro ao autenticar no Google Drive: {e}")
