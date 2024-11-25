@@ -30,7 +30,8 @@ backup_path = "/tmp/backup_eventos.db"  # Backup temporário
 # Função para autenticar e criar conexão com o Google Drive
 def autenticar_google_drive():
     """
-    Autentica o Google Drive usando as credenciais armazenadas no Streamlit Secrets.
+    Autentica o Google Drive usando as credenciais armazenadas no Streamlit Secrets,
+    sem exigir interação manual para inserir códigos de autenticação.
     """
     try:
         # Acessa as credenciais do bloco 'GOOGLE_CREDENTIALS' nos secrets
@@ -57,7 +58,9 @@ def autenticar_google_drive():
             gauth.LoadCredentialsFile(token_path)
         else:
             gauth.LoadClientConfigFile(credentials_path)
-            gauth.CommandLineAuth()  # Autenticação manual apenas na primeira vez
+
+            # Configura o fluxo OAuth automatizado
+            gauth.LocalWebserverAuth()  # Redireciona para um servidor local para autenticação
             gauth.SaveCredentialsFile(token_path)
 
         return GoogleDrive(gauth)
